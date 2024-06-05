@@ -3,11 +3,10 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 import os
-import torch
 import re
 import nltk
 
-from tensorflow.keras.layers import Dense, Input, Conv2D, LSTM, Bidirectional, Flatten, MaxPool2D
+from tensorflow.keras.layers import Dense, Input, Conv2D, LSTM, Flatten, MaxPool2D
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score, f1_score
 from transformers import BertTokenizer, TFBertModel
 from gensim.utils import simple_preprocess
@@ -19,7 +18,7 @@ class BigClass:
                  dataset_raw_train: pd.DataFrame,
                  dataset_raw_test: pd.DataFrame,
                  save_path: str,
-                 labels: list[str] = ['FAKE', 'REAL']):
+                 labels: list[str] = ['fake', 'real']):
         self.raw_train_dataset = dataset_raw_train
         self.raw_test_dataset = dataset_raw_test
         self.save_path = save_path
@@ -36,7 +35,8 @@ class BigClass:
         self.MAX_SEQ_LENGTH = 512
         self.EPOCHS = 10
         self.MODEL_TYPE = ['dense', 'lstm', 'bilstm', 'cnn']
-        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        self.device = "cuda:0" if tf.test.is_gpu_available() else "cpu"
+        # tf.config.list_physical_devices('GPU')
         self.LABELS = labels
         self.model_name = "bert-base-uncased"
         self.embed_len = 768
@@ -86,7 +86,7 @@ class BigClass:
 
     def load_bert_model(self):
         tokenizer = BertTokenizer.from_pretrained(self.model_name)
-        model = TFBertModel.from_pretrained(self.model_name)
+        model = TFBertModel.from_pretrained(self.model_name, output_hidden_states=True)
         model.trainable = False
 
         return tokenizer, model
@@ -179,31 +179,31 @@ class BigClass:
         print("Model compiles with summary ----- ")
         print(self.bert_lstm_model.summary())
 
-    def train_bilstm_model(self, layers: int = 3, units: int = 64):
-        input_word_ids = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_word_ids')
-        input_mask = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_mask')
-        input_type_ids = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_type_ids')
-        x = self.bert_model(input_word_ids, attention_mask=input_mask, token_type_ids=input_type_ids)
-        x = x[0]
-        for _ in range(layers - 1):
-            x = Bidirectional(LSTM(units, return_sequences=True))(x)
-        x = Bidirectional(LSTM(units))(x)
-        x = Dense(units, activation='relu')(x)
-        x = Dense(2, activation='softmax')(x)
-        self.bert_bilstm_model = tf.keras.models.Model(inputs=[input_word_ids, input_mask, input_type_ids],
-                                                       outputs=x)
-
-        self.bert_bilstm_model.compile(loss='binary_crossentropy',
-                                       optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
-                                       metrics=['accuracy'])
-
-        self.train_history['bert_bilstm'] = self.bert_bilstm_model.fit(self.X_train_bert_tokens,
-                                                                       self.y_train_raw,
-                                                                       epochs=self.EPOCHS,
-                                                                       )
-
-        print("Model compiles with summary ----- ")
-        print(self.bert_bilstm_model.summary())
+    # def train_bilstm_model(self, layers: int = 3, units: int = 64):
+    #     input_word_ids = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_word_ids')
+    #     input_mask = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_mask')
+    #     input_type_ids = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_type_ids')
+    #     x = self.bert_model(input_word_ids, attention_mask=input_mask, token_type_ids=input_type_ids)
+    #     x = x[0]
+    #     for _ in range(layers - 1):
+    #         x = Bidirectional(LSTM(units, return_sequences=True))(x)
+    #     x = Bidirectional(LSTM(units))(x)
+    #     x = Dense(units, activation='relu')(x)
+    #     x = Dense(2, activation='softmax')(x)
+    #     self.bert_bilstm_model = tf.keras.models.Model(inputs=[input_word_ids, input_mask, input_type_ids],
+    #                                                    outputs=x)
+    #
+    #     self.bert_bilstm_model.compile(loss='binary_crossentropy',
+    #                                    optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
+    #                                    metrics=['accuracy'])
+    #
+    #     self.train_history['bert_bilstm'] = self.bert_bilstm_model.fit(self.X_train_bert_tokens,
+    #                                                                    self.y_train_raw,
+    #                                                                    epochs=self.EPOCHS,
+    #                                                                    )
+    #
+    #     print("Model compiles with summary ----- ")
+    #     print(self.bert_bilstm_model.summary())
 
     def train_cnn_model(self, units: int = 512):
         input_word_ids = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_word_ids')
@@ -235,42 +235,42 @@ class BigClass:
                                                                  epochs=self.EPOCHS,
                                                                  )
 
-    def train_cnn_bilstm(self):
-        input_word_ids = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_word_ids')
-        input_mask = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_mask')
-        input_type_ids = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_type_ids')
-        x = self.bert_model(input_word_ids, attention_mask=input_mask, token_type_ids=input_type_ids)
-        x = x[0]
-
-        reshape_layer = tf.keras.layers.Reshape((self.MAX_SEQ_LENGTH, self.embed_len, 1))(x)
-        cnn_layer = Conv2D(128, kernel_size=(3, self.embed_len), padding='valid',
-                           kernel_initializer='normal', activation='relu')(reshape_layer)
-        pool_layer = MaxPool2D((2, 1), strides=(2, 1),
-                               padding='valid')(cnn_layer)
-        flatten_0 = Flatten()(pool_layer)
-
-        bilstm_layer = Bidirectional(LSTM(128, return_sequences=True))(x)
-        bilstm_layer = Bidirectional(LSTM(128, return_sequences=True))(bilstm_layer)
-        bilstm_layer = Bidirectional(LSTM(128, return_sequences=True))(bilstm_layer)
-        flatten_1 = Flatten()(bilstm_layer)
-
-        merged_layer = tf.keras.layers.Concatenate(axis=1)([flatten_0, flatten_1])
-        dense_layer = Dense(512, activation='relu')(merged_layer)
-        dropout_layer = tf.keras.layers.Dropout(0.3)(dense_layer)
-        output_layer = Dense(2, activation='softmax')(dropout_layer)
-
-        self.cnn_bilstm_model = tf.keras.models.Model(inputs=[input_word_ids, input_mask, input_type_ids],
-                                                      outputs=output_layer)
-
-        self.cnn_bilstm_model.compile(loss='binary_crossentropy',
-                                      optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
-                                      metrics=['accuracy'])
-
-        print("Model compiled with summary ----")
-        print(self.cnn_bilstm_model.summary())
-
-        self.cnn_bilstm_model.fit(self.X_train_bert_tokens, self.y_train_raw,
-                                  epochs=self.EPOCHS)
+    # def train_cnn_bilstm(self):
+    #     input_word_ids = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_word_ids')
+    #     input_mask = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_mask')
+    #     input_type_ids = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_type_ids')
+    #     x = self.bert_model(input_word_ids, attention_mask=input_mask, token_type_ids=input_type_ids)
+    #     x = x[0]
+    #
+    #     reshape_layer = tf.keras.layers.Reshape((self.MAX_SEQ_LENGTH, self.embed_len, 1))(x)
+    #     cnn_layer = Conv2D(128, kernel_size=(3, self.embed_len), padding='valid',
+    #                        kernel_initializer='normal', activation='relu')(reshape_layer)
+    #     pool_layer = MaxPool2D((2, 1), strides=(2, 1),
+    #                            padding='valid')(cnn_layer)
+    #     flatten_0 = Flatten()(pool_layer)
+    #
+    #     bilstm_layer = Bidirectional(LSTM(128, return_sequences=True))(x)
+    #     bilstm_layer = Bidirectional(LSTM(128, return_sequences=True))(bilstm_layer)
+    #     bilstm_layer = Bidirectional(LSTM(128, return_sequences=True))(bilstm_layer)
+    #     flatten_1 = Flatten()(bilstm_layer)
+    #
+    #     merged_layer = tf.keras.layers.Concatenate(axis=1)([flatten_0, flatten_1])
+    #     dense_layer = Dense(512, activation='relu')(merged_layer)
+    #     dropout_layer = tf.keras.layers.Dropout(0.3)(dense_layer)
+    #     output_layer = Dense(2, activation='softmax')(dropout_layer)
+    #
+    #     self.cnn_bilstm_model = tf.keras.models.Model(inputs=[input_word_ids, input_mask, input_type_ids],
+    #                                                   outputs=output_layer)
+    #
+    #     self.cnn_bilstm_model.compile(loss='binary_crossentropy',
+    #                                   optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
+    #                                   metrics=['accuracy'])
+    #
+    #     print("Model compiled with summary ----")
+    #     print(self.cnn_bilstm_model.summary())
+    #
+    #     self.cnn_bilstm_model.fit(self.X_train_bert_tokens, self.y_train_raw,
+    #                               epochs=self.EPOCHS)
 
     def train_multi_cnn(self):
         input_word_ids = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_word_ids')
@@ -316,56 +316,56 @@ class BigClass:
         self.multi_cnn_model.fit(self.X_train_bert_tokens, self.y_train_raw,
                                  epochs=self.EPOCHS)
 
-    def train_multi_cnn_bilstm(self):
-        input_word_ids = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_word_ids')
-        input_mask = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_mask')
-        input_type_ids = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_type_ids')
-        x = self.bert_model(input_word_ids, attention_mask=input_mask, token_type_ids=input_type_ids)
-        x = x[0]
-        reshape_layer = tf.keras.layers.Reshape((self.MAX_SEQ_LENGTH, self.embed_len, 1))(x)
-
-        cnn_1 = Conv2D(128, kernel_size=(2, self.embed_len), padding='valid',
-                       kernel_initializer='normal', activation='relu')(reshape_layer)
-        cnn_2 = Conv2D(128, kernel_size=(3, self.embed_len), padding='valid',
-                       kernel_initializer='normal', activation='relu')(reshape_layer)
-        cnn_3 = Conv2D(128, kernel_size=(4, self.embed_len), padding='valid',
-                       kernel_initializer='normal', activation='relu')(reshape_layer)
-        cnn_4 = Conv2D(128, kernel_size=(5, self.embed_len), padding='valid',
-                       kernel_initializer='normal', activation='relu')(reshape_layer)
-
-        pool_1 = MaxPool2D((2, 1), strides=(2, 1),
-                           padding='valid')(cnn_1)
-        pool_2 = MaxPool2D((2, 1), strides=(2, 1),
-                           padding='valid')(cnn_2)
-        pool_3 = MaxPool2D((2, 1), strides=(2, 1),
-                           padding='valid')(cnn_3)
-        pool_4 = MaxPool2D((2, 1), strides=(2, 1),
-                           padding='valid')(cnn_4)
-
-        merged_0 = tf.keras.layers.Concatenate(axis=1)([pool_1, pool_2, pool_3, pool_4])
-        flatten_0 = Flatten()(merged_0)
-
-        bilstm_layer = Bidirectional(LSTM(128, return_sequences=True))(x)
-        bilstm_layer = Bidirectional(LSTM(128, return_sequences=True))(bilstm_layer)
-        bilstm_layer = Bidirectional(LSTM(128, return_sequences=True))(bilstm_layer)
-        flatten_1 = Flatten()(bilstm_layer)
-
-        merged_layer = tf.keras.layers.Concatenate(axis=1)([flatten_0, flatten_1])
-        dense_layer = Dense(512, activation='relu')(merged_layer)
-        dropout_layer = tf.keras.layers.Dropout(0.3)(dense_layer)
-        output_layer = Dense(2, activation='softmax')(dropout_layer)
-
-        self.multi_cnn_bilstm_model = tf.keras.models.Model(inputs=[input_word_ids, input_mask, input_type_ids],
-                                                            outputs=output_layer)
-        self.multi_cnn_bilstm_model.compile(loss='binary_crossentropy',
-                                            optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
-                                            metrics=['accuracy'])
-
-        print("Model compiled with summary ----")
-        print(self.multi_cnn_bilstm_model.summary())
-
-        self.multi_cnn_bilstm_model.fit(self.X_train_bert_tokens, self.y_train_raw,
-                                        epochs=self.EPOCHS)
+    # def train_multi_cnn_bilstm(self):
+    #     input_word_ids = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_word_ids')
+    #     input_mask = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_mask')
+    #     input_type_ids = tf.keras.Input(shape=(self.MAX_SEQ_LENGTH,), dtype=tf.int32, name='input_type_ids')
+    #     x = self.bert_model(input_word_ids, attention_mask=input_mask, token_type_ids=input_type_ids)
+    #     x = x[0]
+    #     reshape_layer = tf.keras.layers.Reshape((self.MAX_SEQ_LENGTH, self.embed_len, 1))(x)
+    #
+    #     cnn_1 = Conv2D(128, kernel_size=(2, self.embed_len), padding='valid',
+    #                    kernel_initializer='normal', activation='relu')(reshape_layer)
+    #     cnn_2 = Conv2D(128, kernel_size=(3, self.embed_len), padding='valid',
+    #                    kernel_initializer='normal', activation='relu')(reshape_layer)
+    #     cnn_3 = Conv2D(128, kernel_size=(4, self.embed_len), padding='valid',
+    #                    kernel_initializer='normal', activation='relu')(reshape_layer)
+    #     cnn_4 = Conv2D(128, kernel_size=(5, self.embed_len), padding='valid',
+    #                    kernel_initializer='normal', activation='relu')(reshape_layer)
+    #
+    #     pool_1 = MaxPool2D((2, 1), strides=(2, 1),
+    #                        padding='valid')(cnn_1)
+    #     pool_2 = MaxPool2D((2, 1), strides=(2, 1),
+    #                        padding='valid')(cnn_2)
+    #     pool_3 = MaxPool2D((2, 1), strides=(2, 1),
+    #                        padding='valid')(cnn_3)
+    #     pool_4 = MaxPool2D((2, 1), strides=(2, 1),
+    #                        padding='valid')(cnn_4)
+    #
+    #     merged_0 = tf.keras.layers.Concatenate(axis=1)([pool_1, pool_2, pool_3, pool_4])
+    #     flatten_0 = Flatten()(merged_0)
+    #
+    #     bilstm_layer = Bidirectional(LSTM(128, return_sequences=True))(x)
+    #     bilstm_layer = Bidirectional(LSTM(128, return_sequences=True))(bilstm_layer)
+    #     bilstm_layer = Bidirectional(LSTM(128, return_sequences=True))(bilstm_layer)
+    #     flatten_1 = Flatten()(bilstm_layer)
+    #
+    #     merged_layer = tf.keras.layers.Concatenate(axis=1)([flatten_0, flatten_1])
+    #     dense_layer = Dense(512, activation='relu')(merged_layer)
+    #     dropout_layer = tf.keras.layers.Dropout(0.3)(dense_layer)
+    #     output_layer = Dense(2, activation='softmax')(dropout_layer)
+    #
+    #     self.multi_cnn_bilstm_model = tf.keras.models.Model(inputs=[input_word_ids, input_mask, input_type_ids],
+    #                                                         outputs=output_layer)
+    #     self.multi_cnn_bilstm_model.compile(loss='binary_crossentropy',
+    #                                         optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
+    #                                         metrics=['accuracy'])
+    #
+    #     print("Model compiled with summary ----")
+    #     print(self.multi_cnn_bilstm_model.summary())
+    #
+    #     self.multi_cnn_bilstm_model.fit(self.X_train_bert_tokens, self.y_train_raw,
+    #                                     epochs=self.EPOCHS)
 
     def save_model(self, model, filename: str):
         dir = self.save_path + "/Models-bert/" + filename + ".keras"
@@ -408,9 +408,22 @@ class BigClass:
         except Exception as e:
             print(e)
 
+    # def do(self):
+    #     y, indices = tf.unique(input_ids)
+    #
+    #     ids = indices
+    #     ids = tf.transpose(tf.stack(tf.meshgrid(ids, ids)))
+    #     ids
+    #
+    #     size = y.shape[0]
+    #     tf.tensor_scatter_nd_add(
+    #         tf.zeros((size, size)),
+    #         ids, atm
+    #     )
+
     def get_bert_tokens(self, texts):
         texts = [self.seq_preprocess(seq) for seq in texts]
-        ct = len(texts)
+        ct = len(texts) 
         input_ids = np.ones((ct, self.MAX_SEQ_LENGTH), dtype='int32')
         attention_mask = np.zeros((ct, self.MAX_SEQ_LENGTH), dtype='int32')
         token_type_ids = np.zeros((ct, self.MAX_SEQ_LENGTH), dtype='int32')
