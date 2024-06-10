@@ -109,7 +109,8 @@ class BertPooler(nn.Module):
 def panik():
     raise Exception("panik")
 
-class Stable:
+
+class Library:
     @property
     def train_inputs(self):
         return self.data['train_inputs']
@@ -208,7 +209,6 @@ class Stable:
         test_df = pd.read_csv(test_df_path)[:cap]
         self.data['test_inputs'] = self.tokenize(test_df['evidence'], test_df['claim'])
         self.data['test_labels'] = self.encode_label(test_df['label'])
-
 
         if shuffle:
             self.shuffle()
@@ -313,8 +313,8 @@ class Stable:
             x['token_type_ids'][:self.batch_size]
         ))
 
-    def fit_one_batch(self, model):
-        self.train(model, 10, cap=self.batch_size)
+    def fit_one_batch(self, model, epochs=10):
+        self.train(model, epochs, cap=self.batch_size)
 
     def __init__(self):
         self.device = "cuda:0"
@@ -322,64 +322,32 @@ class Stable:
         nltk.download("stopwords")
         self.stop_words = set(nltk.corpus.stopwords.words("english"))
 
-        # self.model_name = "bert-base-uncased"
-        # self.max_seq_len = 200
-        # self.batch_size = 64
-
-
+        self.model_name = "bert-base-uncased"
+        self.max_seq_len = 200
+        self.batch_size = 64
 
         self.data = {}
 
-# class Project(Stable):
-#     def __init__(self):
-#         super().__init__()
-#         self.model_name = "bert-base-uncased"
-#         self.max_seq_len = 200
-#         self.batch_size = 64
-#         self.lr = 1e-5
-#
-#     def baseline(self):
-#         class NNModel(nn.Module):
-#             def __init__(self):
-#                 super().__init__()
-#                 self.base = BertForSequenceClassification.from_pretrained(
-#                     "bert-base-uncased",
-#                     num_labels=1,
-#                     output_hidden_states=True,
-#                     # output_attentions=True,
-#                     # hidden_dropout_prob=0.0,
-#                     # classifier_dropout=0.0,
-#                 )
-#                 self.attn = MultiheadAttention(768, 768, 2)
-#                 self.dense1 = nn.Linear(768, 768)
-#                 self.norm1 = nn.BatchNorm1d(200)
-#                 self.norm2 = nn.BatchNorm1d(200)
-#                 self.act = nn.ReLU()
-#                 self.dense2 = nn.Linear(768, 1)
-#                 self.pool = BertPooler(768)
-#
-#             def forward(self, input_ids, attention_mask, token_type_ids):
-#                 # x = self.base(input_ids, attention_mask).hidden_states[-1]
-#                 # # x = self.attn(x)
-#                 # # x = x + self.dense1(self.norm2(x))
-#                 # # x = self.pool(x)
-#                 # x = x[:, 0]
-#                 # # x = self.dense(first_token_tensor)
-#                 # x = self.dense2(x)
-#                 x = self.base(
-#                     input_ids=input_ids,
-#                     attention_mask=attention_mask,
-#                     token_type_ids=token_type_ids
-#                 ).logits
-#                 return x
-#
-#         return NNModel()
-#
-#
-# self = Project()
-#
-# self.batch_size = 16
-# self.load_ds(cap=16)
-# model = self.baseline().to(self.device)
-# self.echo(model)
-# self.fit_one_batch(model)
+
+data = None
+# %run -i politifact-bert/v3.py
+
+class Boilerplate(Library):
+    def __init__(self):
+        super().__init__()
+        self.model_name = "bert-base-uncased"
+        self.max_seq_len = 200
+        self.batch_size = 16
+        self.lr = 1e-4
+
+self = Boilerplate()
+print('Created self')
+
+if data is None:
+    if self.data is None:
+        self.load_ds()
+    data = self.data
+elif self.data is None:
+    self.data = data
+print('Created data')
+
