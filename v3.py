@@ -293,6 +293,11 @@ class Library:
     def test(self, model_or_path):
         print(datetime.datetime.now(), 'Test')
 
+        if isinstance(model_or_path, str):
+            model = torch.load(model_or_path)
+        else:
+            model = model_or_path
+
         batch_size = self.batch_size
         x, y = self.test_inputs, self.test_labels.cpu()
         preds = []
@@ -315,6 +320,7 @@ class Library:
 
         print('Acc: %s' % np.mean(acc))
         print('AUC: %s' % np.mean(auc))
+
 
     def echo(self, model):
         print(datetime.datetime.now(), 'Echo')
