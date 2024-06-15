@@ -315,8 +315,8 @@ class Library:
                 pred = (logits > 0).cpu().numpy().astype(int)
                 preds.extend(pred)
 
-        acc = accuracy_score(y[test_batch], preds)
-        auc = roc_auc_score(y[test_batch], preds, labels=(True, False))
+        acc = accuracy_score(y, preds)
+        auc = roc_auc_score(y, preds, labels=(True, False))
 
         print('Acc: %s' % np.mean(acc))
         print('AUC: %s' % np.mean(auc))
