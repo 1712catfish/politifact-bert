@@ -200,7 +200,6 @@ class Library:
 
     def load_ds(self, train_df_path='politifact_train.csv',
                 test_df_path='politifact_test.csv',
-                cap=-1, shuffle=False,
                 device=True):
         print(datetime.datetime.now(), 'Load dataset')
 
@@ -212,6 +211,7 @@ class Library:
         df = pd.read_csv(train_df_path)[:cap]
 
         if shuffle:
+            print("Shuffle")
             evidence, claim, label = sklearn.utils.shuffle(df['evidence'], df['claim'], df['label'], random_state=123)
         else:
             evidence, claim, label = df['evidence'], df['claim'], df['label']
@@ -287,16 +287,11 @@ class Library:
 
             # torch.save(model, save)
 
-            # print('======== Test ========'.format(epoch + 1, epochs))
-            # self.test(model)
+            print('======== Test ========'.format(epoch + 1, epochs))
+            self.test(model)
 
     def test(self, model_or_path):
         print(datetime.datetime.now(), 'Test')
-
-        if isinstance(model_or_path, str):
-            model = torch.load(model_or_path)
-        else:
-            model = model_or_path
 
         batch_size = self.batch_size
         x, y = self.test_inputs, self.test_labels.cpu()
@@ -305,18 +300,18 @@ class Library:
         size = min(len(y), len(x['input_ids']))
 
         with torch.no_grad():
-            for test_batch in list(gen_batches(size, batch_size)):
-                outputs = model(
+            for test_batch in tqdm(list(gen_batches(size, batch_size))):
+                logits = model(
                     x['input_ids'][test_batch],
                     x['attention_mask'][test_batch],
                     x['token_type_ids'][test_batch]
                 )
 
-                pred = (outputs > 0).cpu().numpy().astype(int)[:, 0]
+                pred = (logits > 0).cpu().numpy().astype(int)
                 preds.extend(pred)
 
-        acc = accuracy_score(y, preds)
-        auc = roc_auc_score(y, preds, labels=(True, False))
+        acc = accuracy_score(y[test_batch], preds)
+        auc = roc_auc_score(y[test_batch], preds, labels=(True, False))
 
         print('Acc: %s' % np.mean(acc))
         print('AUC: %s' % np.mean(auc))
