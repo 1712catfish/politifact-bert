@@ -204,6 +204,10 @@ class Library:
                 device=True):
         print(datetime.datetime.now(), 'Load dataset')
 
+        cap = self.cap
+
+        print("Capped at", cap)
+
         df = pd.read_csv(train_df_path)[:cap]
         self.data['train_inputs'] = self.tokenize(df['evidence'], df['claim'])
         self.data['train_labels'] = self.encode_label(df['label'])
@@ -333,6 +337,8 @@ class Library:
         self.batch_size = 64
 
         self.data = {}
+
+        self.cap = -1
 
 
 data = None
