@@ -22,6 +22,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from sklearn.utils import gen_batches
 from sklearn.metrics import roc_auc_score
+from torch_geometric.nn.conv import GATConv, GATv2Conv
+from torch_geometric.utils import mask_to_index, dense_to_sparse, select
 
 
 def scaled_dot_product(q, k, v, mask=None):
@@ -155,8 +157,8 @@ class Library:
 
         return ' '.join(processed_words)
 
-    def encode_label(self, labels, categories=(True, False)):
-        labels = [[float(categories.index(label))] for label in labels]
+    def encode_label(self, labels):
+        labels = [[label, 1-label] for label in labels]
         return labels
 
     def tokenize(self, t1, t2):
@@ -218,7 +220,7 @@ class Library:
                 if 'inputs' in k:
                     self.data[k] = {a: b.to(self.device) for a, b in v.items()}
                 elif 'labels' in k:
-                    self.data[k] = torch.tensor(v).to(self.device)
+                    self.data[k] = torch.tensor(v).type(torch.float).to(self.device)
                 else:
                     panik()
 
@@ -234,9 +236,11 @@ class Library:
         x = {k: v[:cap] for k, v in self.train_inputs.items()}
         y = self.train_labels[:cap]
 
+        size = min(len(y), len(x['input_ids']))
+
         for epoch in range(epochs):
             print('======== Epoch {:} / {:} ========'.format(epoch + 1, epochs))
-            loop = tqdm(list(gen_batches(len(y), batch_size)))
+            loop = tqdm(list(gen_batches(size, batch_size)))
             scores = {'auc': [], 'acc': []}
 
             model.train()
@@ -286,8 +290,10 @@ class Library:
         x, y = self.test_inputs, self.test_labels.cpu()
         preds = []
 
+        size = min(len(y), len(x['input_ids']))
+
         with torch.no_grad():
-            for test_batch in list(gen_batches(len(self.test_labels), batch_size)):
+            for test_batch in list(gen_batches(size, batch_size)):
                 outputs = model(
                     x['input_ids'][test_batch],
                     x['attention_mask'][test_batch],
@@ -332,7 +338,7 @@ class Library:
 data = None
 # %run -i politifact-bert/v3.py
 
-class Boilerplate(Library):
+class Project(Library):
     def __init__(self):
         super().__init__()
         self.model_name = "bert-base-uncased"
@@ -340,14 +346,12 @@ class Boilerplate(Library):
         self.batch_size = 16
         self.lr = 1e-4
 
-self = Boilerplate()
+self = Project()
 print('Created self')
 
-if data is None:
-    if self.data is None:
-        self.load_ds()
-    data = self.data
-elif self.data is None:
-    self.data = data
+reload = True
+if reload:
+    self.load_ds()
+    reload = False
 print('Created data')
 
