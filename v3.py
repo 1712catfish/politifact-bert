@@ -352,12 +352,12 @@ class Project(Library):
         self.batch_size = 16
         self.lr = 1e-4
 
-self = Project()
-print('Created self')
-
-reload = True
-if reload:
-    self.load_ds()
-    reload = False
-print('Created data')
+# self = Project()
+# print('Created self')
+#
+# reload = True
+# if reload:
+#     self.load_ds()
+#     reload = False
+# print('Created data')
 
