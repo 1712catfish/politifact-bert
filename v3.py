@@ -158,7 +158,7 @@ class Library:
         return ' '.join(processed_words)
 
     def encode_label(self, labels):
-        labels = [[label, 1-label] for label in labels]
+        labels = [[label, 1 - label] for label in labels]
         return labels
 
     def tokenize(self, t1, t2):
@@ -205,19 +205,25 @@ class Library:
         print(datetime.datetime.now(), 'Load dataset')
 
         cap = self.cap
+        shuffle = self.shuffle
 
         print("Capped at", cap)
 
         df = pd.read_csv(train_df_path)[:cap]
-        self.data['train_inputs'] = self.tokenize(df['evidence'], df['claim'])
-        self.data['train_labels'] = self.encode_label(df['label'])
+
+        if shuffle:
+            evidence, claim, label = sklearn.utils.shuffle(df['evidence'], df['claim'], df['label'], random_state=123)
+        else:
+            evidence, claim, label = df['evidence'], df['claim'], df['label']
+
+        self.data['train_inputs'] = self.tokenize(evidence, claim)
+        self.data['train_labels'] = self.encode_label(label)
 
         test_df = pd.read_csv(test_df_path)[:cap]
         self.data['test_inputs'] = self.tokenize(test_df['evidence'], test_df['claim'])
         self.data['test_labels'] = self.encode_label(test_df['label'])
 
-        if shuffle:
-            self.shuffle()
+        data = self.data
 
         if device:
             for k, v in self.data.items():
@@ -227,6 +233,8 @@ class Library:
                     self.data[k] = torch.tensor(v).type(torch.float).to(self.device)
                 else:
                     panik()
+
+        return data
 
     def train(self, model, epochs=20, cap=-1, save='base_model.pth'):
         print(datetime.datetime.now(), 'Train')
@@ -339,9 +347,9 @@ class Library:
         self.data = {}
 
         self.cap = -1
+        self.shuffle = True
 
 
-data = None
 # %run -i politifact-bert/v3.py
 
 class Project(Library):
@@ -360,4 +368,3 @@ class Project(Library):
 #     self.load_ds()
 #     reload = False
 # print('Created data')
-
