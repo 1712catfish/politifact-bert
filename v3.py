@@ -322,7 +322,7 @@ class Library:
         print('AUC: %s' % np.mean(auc))
 
     def echo(self, model):
-        print(datetime.datetime.now(), 'Echo')  
+        print(datetime.datetime.now(), 'Echo')
 
         x = self.train_inputs
         print(model(
@@ -360,6 +360,7 @@ class Project(Library):
         self.batch_size = 16
         self.lr = 1e-4
 
+
 # self = Project()
 # print('Created self')
 #
@@ -370,8 +371,11 @@ class Project(Library):
 # print('Created data')
 
 
-
 class V4(Project):
+
+    def __init__(self):
+        super(V4, self).__init__()
+        self.num_accumulation_steps = 1
 
     def get_slices(self, df):
         x, a, b = df['claim'], df['evidence'], df['label']
@@ -420,9 +424,11 @@ class V4(Project):
                 print(e)
         return data
 
-    def train(self, model, save='base_model.pth'):
+    def train(self, model, save='base_model.pth', test=False):
 
         print(datetime.datetime.now(), 'Train')
+
+        print("Lr", self.lr)
 
         optimizer = AdamW(model.parameters(), lr=self.lr)
 
@@ -437,14 +443,16 @@ class V4(Project):
 
             model.train()
 
-            for data in self.get_data(train=True):
-                model.zero_grad(set_to_none=True)
+            grad_zero = True
+            for i, data in enumerate(self.get_data(train=True)):
+                # model.zero_grad(set_to_none=True)
 
                 logits, y = model.call(data)
 
                 loss = loss_fn(logits, y)
+
+                loss = loss / self.num_accumulation_steps
                 loss.backward()
-                optimizer.step()
 
                 pred = logits.cpu() > 0
                 true = y.cpu()
@@ -453,10 +461,22 @@ class V4(Project):
 
                 scores['acc'].append(acc)
 
+                if (i + 1) % self.num_accumulation_steps == 0:
+                    optimizer.step()
+                    optimizer.zero_grad(set_to_none=True)
+                    grad_zero = True
+                else:
+                    grad_zero = False
+            else:
+                if grad_zero:
+                    optimizer.step()
+                    optimizer.zero_grad(set_to_none=True)
+
             print('Acc: %s' % np.mean(scores['acc']))
 
-            print('======== Test ========'.format(epoch + 1, self.epochs))
-            self.test(model)
+            if test:
+                print('======== Test ========'.format(epoch + 1, self.epochs))
+                self.test(model)
 
     def test(self, model_or_path):
         print(datetime.datetime.now(), 'Test')
@@ -526,7 +546,6 @@ class V4(Project):
             slices = self.data['test_slices']
 
         return self.data_iter_v2(x, y, slices)
-
 
 # self = V4()
 # self.shuffle = False
