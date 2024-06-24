@@ -53,7 +53,7 @@ def punct_insertion(sentence, p=0.3, punctuations=None):
     return augmented_sentence
 
 
-def segment_shuffle(sentences, aug_max=10):
+def cross_segment_shuffle(sentences, aug_max=10):
     sentences = [sentence.split(' ') for sentence in sentences]
 
     snips = [""] * len(sentences)
@@ -72,10 +72,33 @@ def segment_shuffle(sentences, aug_max=10):
 
     for i, snip in enumerate(snips):
         s = sentences[i]
-        pos = random.choice((0, len(s)))
+        pos = random.randint(0, len(s))
         sentences[i] = s[:pos] + snip + s[pos:]
 
     return [' '.join(s) for s in sentences]
+
+def self_segment_insert(sentence, p=0.3, aug_max=10):
+    sentence = [s.split(' ') for s in sentence]
+
+    num_segment = int(len(sentence) / aug_max * p)
+
+    pos_list = [random.randint(0, len(sentence)) for _ in range(num_segment)]
+    pos_list.sort()
+
+    snips = []
+    for i in range(0, len(pos_list), 2):
+        pos1 = pos_list[i]
+        pos2 = pos_list[i+1]
+        snips.append(sentence[pos1:pos2]) if random.random() < p else ""
+
+    snips = sklearn.utils.shuffle(snips)
+
+    for i, snip in enumerate(snips):
+        pos = random.randint(0, len(sentence))
+        if random.random() < p:
+            sentence = sentence[:pos] + snip + sentence[pos:]
+
+    return sentence
 
 
 class DataMixin:
