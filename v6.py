@@ -160,6 +160,11 @@ class DataMixin:
         if self.is_train or self.tta:
             t1, t2 = self.get_aug(t1), self.get_aug(t2)
 
+        pos = len(t1)
+        ts = segment_shuffle(t1 + t2)
+        t1, t2 = ts[:pos], ts[pos:]
+
+
         tokens = self.tokenize2(t1, t2)
 
         labels = [[label, 1 - label] for label in df['label']]
@@ -211,7 +216,7 @@ class V4(DataMixin):
             self.is_train = True
 
             grad_zero = True
-            for i, data in enumerate(self.data_iter(train=True)):
+            for i, data in enumerate(self.data_iter()):
                 # model.zero_grad(set_to_none=True)
 
                 logits, y = model.call(data)
@@ -263,7 +268,7 @@ class V4(DataMixin):
         preds, trues = [], []
 
         with torch.no_grad():
-            for data in self.data_iter(train=False):
+            for data in self.data_iter():
                 logits, y = model.call(data)
 
                 pred = logits > 0
