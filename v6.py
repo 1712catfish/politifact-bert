@@ -24,26 +24,100 @@ from sklearn.utils import gen_batches
 from sklearn.metrics import roc_auc_score
 from torch_geometric.nn.conv import GATConv, GATv2Conv
 from torch_geometric.utils import mask_to_index, dense_to_sparse, select
+from prefetch_generator import background
+import nltk
+import nlpaug.augmenter.char as nac
+import nlpaug.augmenter.word as naw
+import nlpaug.augmenter.sentence as nas
+import nlpaug.flow as naf
+
+from nlpaug.util import Action
+import random
+
+
+def punct_insertion(sentence, p=0.3, punctuations=None):
+    if punctuations is None:
+        punctuations = ['.', ';', '?', ':', '!', ',']
+    sentence = sentence.strip().split(' ')
+    len_sentence = len(sentence)
+
+    num_punctuations = random.randint(1, int(len_sentence * p))
+    augmented_sentence = sentence.copy()
+
+    for _ in range(num_punctuations):
+        punct = random.choice(punctuations)
+        pos = random.randint(0, len(augmented_sentence) - 1)
+        augmented_sentence = augmented_sentence[:pos] + [punct] + augmented_sentence[pos:]
+    augmented_sentence = ' '.join(augmented_sentence)
+
+    return augmented_sentence
+
+
+def segment_shuffle(sentences, aug_max=10, p=0.2):
+    sentences = [sentence.split(' ') for sentence in sentences]
+
+    snips = [""] * len(sentences)
+    for i, s in enumerate(sentences):
+        pos1, pos2 = random.choice((0, len(s)))
+        if pos1 > pos2:
+            pos1, pos2 = pos2, pos1
+        if pos2 - pos1 > aug_max:
+            pos1, pos2 = (pos1 + pos2 - aug_max) // 2, (pos1 + pos2 + aug_max) // 2
+        snips[i] = s[pos1:pos2]
+        sentences[i] = s[:pos1] + s[pos2:]
+
+    snips = sklearn.utils.shuffle(snips)
+
+    for i, snip in enumerate(snips):
+        s = sentences[i]
+        pos = random.choice((0, len(s)))
+        sentences[i] = s[:pos] + snip + s[pos:]
+
+    return sentences
 
 
 class DataMixin:
     def __init__(self):
-        super().__init__()
         self.cap = -1
         self.batch_size = 16
         self.data = None
         self.max_seq_len = 200
         self.device = "cuda:0"
         self.tokenizer = None
+        self.model_name = "bert-base-uncased"
 
-    def encode_label(self, labels):
-        labels = [[label, 1 - label] for label in labels]
-        return labels
+        nltk.download('stopwords')
+        nltk.download('wordnet')
+        os.system("unzip /usr/share/nltk_data/corpora/wordnet.zip -d /usr/share/nltk_data/corpora/")
 
-    def tokenize(self, t1, t2):
-        if self.tokenizer is None:
-            self.tokenizer = BertTokenizer.from_pretrained(self.model_name, do_lower_case=True)
+        self.train_csv_path = 'politifact_train.csv'
+        self.test_csv_path = 'politifact_test.csv'
 
+        self.data['train_pandas'] = pd.read_csv(self.train_csv_path)
+        self.data['test_pandas'] = pd.read_csv(self.test_csv_path)
+
+        self.tokenizer = BertTokenizer.from_pretrained(self.model_name, do_lower_case=True)
+
+        self.tta = False
+        self.aug = naf.Sometimes([
+            naw.SynonymAug(aug_src='wordnet'),
+            naw.RandomWordAug(action="crop"),
+            naw.RandomWordAug(action="swap"),
+        ])
+
+    def tokenize(self, t):
+        return self.tokenizer.batch_encode_plus(
+            t,
+            add_special_tokens=True,
+            max_length=self.max_seq_len,
+            truncation=True,
+            return_attention_mask=True,
+            return_token_type_ids=True,
+            padding='max_length',
+            return_tensors='pt',
+        )
+
+    def tokenize2(self, t1, t2):
         return self.tokenizer.batch_encode_plus(
             zip(t1, t2),
             add_special_tokens=True,
@@ -55,58 +129,6 @@ class DataMixin:
             return_tensors='pt',
         )
 
-    def get_data(self, train=True):
-        cap = self.cap
-        batch_size = self.batch_size
-
-        if train:
-            x = {k: v[:cap] for k, v in self.data['train_inputs'].items()}
-            y = self.data['train_labels'][:cap]
-            slices = self.data['train_slices']
-        else:
-            x = {k: v for k, v in self.data['test_inputs'].items()}
-            y = self.data['test_labels']
-            slices = self.data['test_slices']
-
-        return self.data_iter_v2(x, y, slices)
-
-    def load_ds(self, train_df_path='politifact_train.csv',
-                test_df_path='politifact_test.csv',
-                device=True):
-        print(datetime.datetime.now(), 'Load dataset')
-
-        cap = self.cap
-
-        print("Capped at", cap)
-
-        df = pd.read_csv(train_df_path)[:cap]
-        test_df = pd.read_csv(test_df_path)[:cap]
-
-        self.data['df'] = pd.read_csv(train_df_path)[:cap]
-        self.data['test_df'] = pd.read_csv(test_df_path)[:cap]
-
-        # self.data['train_slices'] = self.get_slices(df)
-        # self.data['test_slices'] = self.get_slices(test_df)
-        #
-        # self.data['train_inputs'] = self.tokenize(df['claim'], df['evidence'])
-        # self.data['train_labels'] = self.encode_label(df['label'])
-        #
-        # self.data['test_inputs'] = self.tokenize(test_df['claim'], test_df['evidence'])
-        # self.data['test_labels'] = self.encode_label(test_df['label'])
-        #
-        # data = self.data
-        #
-        # if device:
-        #     try:
-        #         for k, v in self.data.items():
-        #             if 'inputs' in k:
-        #                 self.data[k] = {a: b.to(self.device) for a, b in v.items()}
-        #             elif 'labels' in k:
-        #                 self.data[k] = torch.tensor(v).type(torch.float).to(self.device)
-        #     except Exception as e:
-        #         print(e)
-        # return data
-
     def get_slices(self, df):
         x, a, b = df['claim'], df['evidence'], df['label']
 
@@ -117,34 +139,40 @@ class DataMixin:
 
         return slices
 
-    def load_fn(self, df, train=True):
-        tokens = self.tokenize(df['claim'], df['evidence'])
-        labels = self.encode_label(df['label'])
+    def get_aug(self, text_batch):
+        text_batch = self.
+        text_batch = [punct_insertion(text) for text in text_batch]
+        text_batch = self.aug.augment(text_batch)
+        return text_batch
 
-        try:
-            tokens = {a: b.to(self.device) for a, b in tokens.items()}
-            labels = torch.tensor(labels).type(torch.float).to(self.device)
-        except Exception as e:
-            print(e)
+    def load_fn(self, df, train=True):
+        t1, t2 = df['claim'], df['evidence']
+
+        if train or self.tta:
+            t1, t2 = self.get_aug(t1), self.get_aug(t2)
+
+        tokens = self.tokenize2(t1, t2)
+
+        labels = [[label, 1 - label] for label in df['label']]
+
+        tokens = {a: b.to(self.device) for a, b in tokens.items()}
+        labels = torch.tensor(labels).type(torch.float).to(self.device)
 
         return tokens, labels
 
-    def data_iter_v1(self, x, y, slices):
-        batch = slice(0, 0)
+    @background
+    def data_iter(self, train=True):
+        if train:
+            df = self.data['df']
+            slices = self.data['train_slices']
+        else:
+            df = self.data['test_df']
+            slices = self.data['test_slices']
 
-        for s in tqdm(slices):
-
-            if s.stop - batch.start < self.batch_size:
-                batch = slice(batch.start, s.stop)
-            else:
-                b = batch
-                batch = slice(batch.stop, s.stop)
-                yield x['input_ids'][b], x['attention_mask'][b], x['token_type_ids'][b], y[b]
-
-    def data_iter_v2(self, x, y, slices):
         slices = sklearn.utils.shuffle(slices)[:self.cap]
         for b in tqdm(slices):
-            yield x['input_ids'][b], x['attention_mask'][b], x['token_type_ids'][b], y[b]
+            x, y = self.load_fn(df[b])
+            yield x, y
 
 
 class V4(DataMixin):
@@ -162,8 +190,6 @@ class V4(DataMixin):
         print("Lr", self.learning_rate)
 
         optimizer = AdamW(model.parameters(), lr=self.learning_rate)
-
-        batch_size = self.batch_size
 
         loss_fn = CrossEntropyLoss()
 
