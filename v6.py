@@ -137,11 +137,10 @@ class DataMixin:
         self.tokenizer = BertTokenizer.from_pretrained(self.model_name, do_lower_case=True)
 
         self.tta = False
-        self.aug = naf.Sometimes([
+        self.nlp_aug = naf.Sometimes([
             naw.SynonymAug(aug_src='wordnet'),
-            # naw.RandomWordAug(action="crop"),
             naw.RandomWordAug(action=Action.DELETE),
-            naw.RandomWordAug(action="swap"),
+            naw.RandomWordAug(action=Action.SWAP),
         ])
 
         self.is_train = False
@@ -183,21 +182,24 @@ class DataMixin:
 
         return slices
 
-    def get_aug(self, text_batch):
-        text_batch = [self_duplication(text) for text in text_batch]
-        text_batch = [punct_insertion(text) for text in text_batch]
-        text_batch = [self.aug.augment(text)[0] for text in text_batch]
-        return text_batch
+    def get_aug(self, text):
+        text = self_duplication(text)
+        text = punct_insertion(text)
+        text = self.nlp_aug.augment(text)[0]
+        return text
+
+    def get_aug_batch(self, text_batch):
+        return [self.get_aug(text) for text in text_batch]
 
     def load_fn(self, df):
         t1, t2 = df['claim'].values.tolist(), df['evidence'].values.tolist()
 
         if self.is_train or self.tta:
-            t1, t2 = self.get_aug(t1), self.get_aug(t2)
+            t1, t2 = self.get_aug_batch(t1), self.get_aug_batch(t2)
 
-        pos = len(t1)
-        ts = translocation(t1 + t2)
-        t1, t2 = ts[:pos], ts[pos:]
+        # pos = len(t1)
+        # ts = translocation(t1 + t2)
+        # t1, t2 = ts[:pos], ts[pos:]
 
         tokens = self.tokenize2(t1, t2)
 
