@@ -53,12 +53,14 @@ def punct_insertion(sentence, p=0.3, punctuations=None):
     return augmented_sentence
 
 
-def segment_shuffle(sentences, aug_max=10, p=0.2):
+def segment_shuffle(sentences, aug_max=10):
     sentences = [sentence.split(' ') for sentence in sentences]
 
     snips = [""] * len(sentences)
     for i, s in enumerate(sentences):
-        pos1, pos2 = random.choice((0, len(s)))
+        pos1 = random.choice((0, len(s)))
+        pos2 = random.choice((0, len(s)))
+
         if pos1 > pos2:
             pos1, pos2 = pos2, pos1
         if pos2 - pos1 > aug_max:
