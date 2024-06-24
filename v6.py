@@ -162,8 +162,6 @@ class DataMixin:
         if self.is_train or self.tta:
             t1, t2 = self.get_aug(t1), self.get_aug(t2)
 
-        print(t1, t2)
-
         pos = len(t1)
         ts = segment_shuffle(t1 + t2)
         t1, t2 = ts[:pos], ts[pos:]
