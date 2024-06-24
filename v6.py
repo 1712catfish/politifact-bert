@@ -87,7 +87,7 @@ def self_duplication(sentence, aug_max=10):
     pos_list.sort()
 
     snips = []
-    for i in range(0, len(pos_list), 2):
+    for i in range(0, len(pos_list)-1, 2):
         pos1 = pos_list[i]
         pos2 = pos_list[i + 1]
         snips.append(sentence[pos1:pos2])
