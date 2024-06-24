@@ -99,6 +99,8 @@ class DataMixin:
             'train_pandas': pd.read_csv(self.train_csv_path),
             'test_pandas': pd.read_csv(self.test_csv_path)
         }
+        self.data['train_slices'] = self.get_slices(self.data['train_pandas'])
+        self.data['test_slices'] = self.get_slices(self.data['test_pandas'])
 
         self.tokenizer = BertTokenizer.from_pretrained(self.model_name, do_lower_case=True)
 
