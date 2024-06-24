@@ -177,10 +177,10 @@ class DataMixin:
     @background(max_prefetch=32)
     def data_iter(self):
         if self.is_train:
-            df = self.data['df']
+            df = self.data['train_pandas']
             slices = self.data['train_slices']
         else:
-            df = self.data['test_df']
+            df = self.data['test_pandas']
             slices = self.data['test_slices']
 
         slices = sklearn.utils.shuffle(slices)[:self.cap]
