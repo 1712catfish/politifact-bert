@@ -185,7 +185,7 @@ class DataMixin:
             slices = self.data['test_slices']
 
         slices = sklearn.utils.shuffle(slices)[:self.cap]
-        for b in tqdm(slices):
+        for b in slices:
             x, y = self.load_fn(df[b])
             yield x, y
 
