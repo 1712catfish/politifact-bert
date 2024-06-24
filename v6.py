@@ -199,8 +199,6 @@ class DataMixin:
         ts = translocation(t1 + t2)
         t1, t2 = ts[:pos], ts[pos:]
 
-
-
         tokens = self.tokenize2(t1, t2)
 
         labels = [[label, 1 - label] for label in df['label']]
@@ -210,7 +208,7 @@ class DataMixin:
 
         return tokens, labels
 
-    @background(max_prefetch=32)
+    @background(max_prefetch=0)
     def data_iter(self):
         if self.is_train:
             df = self.data['train_pandas']
@@ -218,6 +216,8 @@ class DataMixin:
         else:
             df = self.data['test_pandas']
             slices = self.data['test_slices']
+
+        # cap = self.cap if self.is_train else -1
 
         slices = sklearn.utils.shuffle(slices)[:self.cap]
         for b in slices:
