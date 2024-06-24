@@ -176,7 +176,7 @@ class DataMixin:
     def get_aug(self, text_batch):
         text_batch = [self_duplication(text) for text in text_batch]
         text_batch = [punct_insertion(text) for text in text_batch]
-        text_batch = [self.aug.augment(text) for text in text_batch]
+        text_batch = [self.aug.augment(text)[0] for text in text_batch]
         return text_batch
 
     def load_fn(self, df):
