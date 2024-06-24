@@ -53,7 +53,7 @@ def punct_insertion(sentence, p=0.3, punctuations=None):
     return augmented_sentence
 
 
-def cross_segment_shuffle(sentences, aug_max=10):
+def translocation(sentences, aug_max=10):
     sentences = [sentence.split(' ') for sentence in sentences]
 
     snips = [""] * len(sentences)
@@ -176,7 +176,7 @@ class DataMixin:
     def get_aug(self, text_batch):
         text_batch = [self_duplication(text) for text in text_batch]
         text_batch = [punct_insertion(text) for text in text_batch]
-        text_batch = self.aug.augment(text_batch)
+        text_batch = [self.aug.augment(text) for text in text_batch]
         return text_batch
 
     def load_fn(self, df):
@@ -186,8 +186,10 @@ class DataMixin:
             t1, t2 = self.get_aug(t1), self.get_aug(t2)
 
         pos = len(t1)
-        ts = cross_segment_shuffle(t1 + t2)
+        ts = translocation(t1 + t2)
         t1, t2 = ts[:pos], ts[pos:]
+
+
 
         tokens = self.tokenize2(t1, t2)
 
