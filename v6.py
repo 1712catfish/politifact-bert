@@ -210,7 +210,7 @@ class DataMixin:
 
         return tokens, labels
 
-    # @background(max_prefetch=16)
+    @background(max_prefetch=16)
     def data_iter(self):
         if self.is_train:
             df = self.data['train_pandas']
