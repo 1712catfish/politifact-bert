@@ -190,10 +190,10 @@ class DataMixin:
             yield x, y
 
 
-class V4(DataMixin):
+class V6(DataMixin):
 
     def __init__(self):
-        super(V4, self).__init__()
+        super().__init__()
         self.num_accumulation_steps = 1
         self.learning_rate = 1e-4
         self.epochs = 20
