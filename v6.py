@@ -174,7 +174,7 @@ class DataMixin:
         return slices
 
     def get_aug(self, text_batch):
-        text_batch = self_translocation(text_batch)
+        text_batch = self_duplication(text_batch)
         text_batch = [punct_insertion(text) for text in text_batch]
         text_batch = self.aug.augment(text_batch)
         return text_batch
