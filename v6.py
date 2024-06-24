@@ -98,7 +98,7 @@ def self_segment_insert(sentence, p=0.3, aug_max=10):
         if random.random() < p:
             sentence = sentence[:pos] + snip + sentence[pos:]
 
-    return sentence
+    return ' '.join(sentence)
 
 
 class DataMixin:
