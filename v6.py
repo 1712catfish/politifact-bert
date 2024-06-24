@@ -58,8 +58,8 @@ def segment_shuffle(sentences, aug_max=10):
 
     snips = [""] * len(sentences)
     for i, s in enumerate(sentences):
-        pos1 = random.choice((0, len(s)))
-        pos2 = random.choice((0, len(s)))
+        pos1 = random.randint(0, len(s))
+        pos2 = random.randint(0, len(s))
 
         if pos1 > pos2:
             pos1, pos2 = pos2, pos1
@@ -109,6 +109,8 @@ class DataMixin:
             naw.RandomWordAug(action="swap"),
         ])
 
+        self.is_train = False
+
     def tokenize(self, t):
         if self.tokenizer is None:
             self.tokenizer = BertTokenizer.from_pretrained(self.model_name, do_lower_case=True)
@@ -152,10 +154,10 @@ class DataMixin:
         text_batch = self.aug.augment(text_batch)
         return text_batch
 
-    def load_fn(self, df, train=True):
+    def load_fn(self, df):
         t1, t2 = df['claim'], df['evidence']
 
-        if train or self.tta:
+        if self.is_train or self.tta:
             t1, t2 = self.get_aug(t1), self.get_aug(t2)
 
         tokens = self.tokenize2(t1, t2)
@@ -167,9 +169,9 @@ class DataMixin:
 
         return tokens, labels
 
-    @background
-    def data_iter(self, train=True):
-        if train:
+    @background(max_prefetch=32)
+    def data_iter(self):
+        if self.is_train:
             df = self.data['df']
             slices = self.data['train_slices']
         else:
@@ -206,6 +208,7 @@ class V4(DataMixin):
             scores = {'auc': [], 'acc': []}
 
             model.train()
+            self.is_train = True
 
             grad_zero = True
             for i, data in enumerate(self.data_iter(train=True)):
@@ -242,6 +245,8 @@ class V4(DataMixin):
                 print('======== Test ========'.format(epoch + 1, self.epochs))
                 self.test(model)
 
+        self.is_train = False
+
     def test(self, model_or_path):
         print(datetime.datetime.now(), 'Test')
 
@@ -251,6 +256,7 @@ class V4(DataMixin):
             model = model_or_path
 
         model.eval()
+        self.is_train = False
 
         scores = {'auc': [], 'acc': []}
 
