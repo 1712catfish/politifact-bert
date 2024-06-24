@@ -140,6 +140,7 @@ class DataMixin:
         self.aug = naf.Sometimes([
             naw.SynonymAug(aug_src='wordnet'),
             # naw.RandomWordAug(action="crop"),
+            naw.RandomWordAug(action=Action.DELETE),
             naw.RandomWordAug(action="swap"),
         ])
 
