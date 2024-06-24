@@ -157,15 +157,16 @@ class DataMixin:
         return text_batch
 
     def load_fn(self, df):
-        t1, t2 = df['claim'], df['evidence']
+        t1, t2 = df['claim'].values.tolist(), df['evidence'].values.tolist()
 
         if self.is_train or self.tta:
             t1, t2 = self.get_aug(t1), self.get_aug(t2)
 
+        print(t1, t2)
+
         pos = len(t1)
         ts = segment_shuffle(t1 + t2)
         t1, t2 = ts[:pos], ts[pos:]
-
 
         tokens = self.tokenize2(t1, t2)
 
