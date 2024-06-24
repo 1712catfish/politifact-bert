@@ -174,7 +174,7 @@ class DataMixin:
         return slices
 
     def get_aug(self, text_batch):
-        text_batch = segment_shuffle(text_batch)
+        text_batch = self_segment_insert(text_batch)
         text_batch = [punct_insertion(text) for text in text_batch]
         text_batch = self.aug.augment(text_batch)
         return text_batch
@@ -186,7 +186,7 @@ class DataMixin:
             t1, t2 = self.get_aug(t1), self.get_aug(t2)
 
         pos = len(t1)
-        ts = segment_shuffle(t1 + t2)
+        ts = cross_segment_shuffle(t1 + t2)
         t1, t2 = ts[:pos], ts[pos:]
 
         tokens = self.tokenize2(t1, t2)
