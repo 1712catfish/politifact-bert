@@ -34,8 +34,14 @@ import nlpaug.flow as naf
 from nlpaug.util import Action
 import random
 
+import transformers
+transformers.logging.set_verbosity_error()
+
 
 def punct_insertion(sentence, p=0.3, punctuations=None):
+    if not sentence:
+        return sentence
+
     if punctuations is None:
         punctuations = ['.', ';', '?', ':', '!', ',']
     sentence = sentence.strip().split(' ')
@@ -58,6 +64,9 @@ def translocation(sentences, aug_max=10):
 
     snips = [""] * len(sentences)
     for i, s in enumerate(sentences):
+        if not s:
+            continue
+
         pos1 = random.randint(0, len(s))
         pos2 = random.randint(0, len(s))
 
