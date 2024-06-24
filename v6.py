@@ -75,7 +75,7 @@ def segment_shuffle(sentences, aug_max=10):
         pos = random.choice((0, len(s)))
         sentences[i] = s[:pos] + snip + s[pos:]
 
-    return sentences
+    return [' '.join(s) for s in sentences]
 
 
 class DataMixin:
@@ -110,6 +110,9 @@ class DataMixin:
         ])
 
     def tokenize(self, t):
+        if self.tokenizer is None:
+            self.tokenizer = BertTokenizer.from_pretrained(self.model_name, do_lower_case=True)
+
         return self.tokenizer.batch_encode_plus(
             t,
             add_special_tokens=True,
@@ -275,6 +278,8 @@ class V4(DataMixin):
             logits, y = model.call(data)
             print(logits)
             break
+
+
 
 # self = V4()
 # self.shuffle = False
