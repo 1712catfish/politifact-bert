@@ -78,7 +78,7 @@ def cross_segment_shuffle(sentences, aug_max=10):
     return [' '.join(s) for s in sentences]
 
 def self_segment_insert(sentence, p=0.3, aug_max=10):
-    sentence = [s.split(' ') for s in sentence]
+    sentence = sentence.split(' ')
 
     num_segment = int(len(sentence) / aug_max * p)
 
