@@ -47,7 +47,7 @@ def punct_insertion(sentence, p=0.3, punctuations=None):
     sentence = sentence.strip().split(' ')
     len_sentence = len(sentence)
 
-    num_punctuations = random.randint(1, int(len_sentence * p))
+    num_punctuations = int(random.randint(1, len_sentence) * p)
     augmented_sentence = sentence.copy()
 
     for _ in range(num_punctuations):
