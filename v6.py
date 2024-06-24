@@ -251,7 +251,9 @@ class V6(DataMixin):
             self.is_train = True
 
             grad_zero = True
-            for i, data in enumerate(tqdm(self.data_iter(), total=len(self.data['train_slices']))):
+            for i, data in enumerate(tqdm(self.data_iter(),
+                                          total=len(self.data['train_slices']),
+                                          position=0, leave=True)):
                 # model.zero_grad(set_to_none=True)
 
                 logits, y = model.call(data)
@@ -303,7 +305,7 @@ class V6(DataMixin):
         preds, trues = [], []
 
         with torch.no_grad():
-            for data in tqdm(self.data_iter(), total=len(self.data['test_slices'])):
+            for data in tqdm(self.data_iter(), total=len(self.data['test_slices']), position=0, leave=True):
                 logits, y = model.call(data)
 
                 pred = logits > 0
