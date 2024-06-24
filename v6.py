@@ -284,8 +284,7 @@ class V4(DataMixin):
 
     def echo(self, model):
         print(datetime.datetime.now(), 'Echo')
-
-        for data in self.data_iter(train=True):
+        for data in self.data_iter():
             logits, y = model.call(data)
             print(logits)
             break
