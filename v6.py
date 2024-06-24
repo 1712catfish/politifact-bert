@@ -186,8 +186,12 @@ class DataMixin:
 
         slices = sklearn.utils.shuffle(slices)[:self.cap]
         for b in slices:
-            x, y = self.load_fn(df[b])
-            yield x, y
+            try:
+                x, y = self.load_fn(df[b])
+                yield x, y
+            except:
+                print(b)
+                print(df[b])
 
 
 class V6(DataMixin):
