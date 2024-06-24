@@ -93,8 +93,10 @@ class DataMixin:
         self.train_csv_path = 'politifact_train.csv'
         self.test_csv_path = 'politifact_test.csv'
 
-        self.data['train_pandas'] = pd.read_csv(self.train_csv_path)
-        self.data['test_pandas'] = pd.read_csv(self.test_csv_path)
+        self.data = {
+            'train_pandas': pd.read_csv(self.train_csv_path),
+            'test_pandas': pd.read_csv(self.test_csv_path)
+        }
 
         self.tokenizer = BertTokenizer.from_pretrained(self.model_name, do_lower_case=True)
 
@@ -140,7 +142,7 @@ class DataMixin:
         return slices
 
     def get_aug(self, text_batch):
-        text_batch = self.
+        text_batch = segment_shuffle(text_batch)
         text_batch = [punct_insertion(text) for text in text_batch]
         text_batch = self.aug.augment(text_batch)
         return text_batch
@@ -201,7 +203,7 @@ class V4(DataMixin):
             model.train()
 
             grad_zero = True
-            for i, data in enumerate(self.get_data(train=True)):
+            for i, data in enumerate(self.data_iter(train=True)):
                 # model.zero_grad(set_to_none=True)
 
                 logits, y = model.call(data)
@@ -250,7 +252,7 @@ class V4(DataMixin):
         preds, trues = [], []
 
         with torch.no_grad():
-            for data in self.get_data(train=False):
+            for data in self.data_iter(train=False):
                 logits, y = model.call(data)
 
                 pred = logits > 0
@@ -267,7 +269,7 @@ class V4(DataMixin):
     def echo(self, model):
         print(datetime.datetime.now(), 'Echo')
 
-        for data in self.get_data(train=True):
+        for data in self.data_iter(train=True):
             logits, y = model.call(data)
             print(logits)
             break
