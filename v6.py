@@ -139,7 +139,7 @@ class DataMixin:
         self.tta = False
         self.aug = naf.Sometimes([
             naw.SynonymAug(aug_src='wordnet'),
-            naw.RandomWordAug(action="crop"),
+            # naw.RandomWordAug(action="crop"),
             naw.RandomWordAug(action="swap"),
         ])
 
@@ -334,3 +334,4 @@ class V6(DataMixin):
 # self.epochs = 20
 # # self.batch_size = 16
 # # self.train(model)
+model = None
