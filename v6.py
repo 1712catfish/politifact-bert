@@ -77,26 +77,26 @@ def cross_segment_shuffle(sentences, aug_max=10):
 
     return [' '.join(s) for s in sentences]
 
-def self_segment_insert(sentence, p=0.3, aug_max=10):
+
+def self_duplication(sentence, aug_max=10):
     sentence = sentence.split(' ')
 
-    num_segment = int(len(sentence) / aug_max * p)
+    num_augs = random.randint(0, aug_max)
 
-    pos_list = [random.randint(0, len(sentence)) for _ in range(num_segment)]
+    pos_list = [random.randint(0, len(sentence)) for _ in range(num_augs)]
     pos_list.sort()
 
     snips = []
     for i in range(0, len(pos_list), 2):
         pos1 = pos_list[i]
-        pos2 = pos_list[i+1]
-        snips.append(sentence[pos1:pos2]) if random.random() < p else ""
+        pos2 = pos_list[i + 1]
+        snips.append(sentence[pos1:pos2])
 
     snips = sklearn.utils.shuffle(snips)
 
     for i, snip in enumerate(snips):
         pos = random.randint(0, len(sentence))
-        if random.random() < p:
-            sentence = sentence[:pos] + snip + sentence[pos:]
+        sentence = sentence[:pos] + snip + sentence[pos:]
 
     return ' '.join(sentence)
 
@@ -174,7 +174,7 @@ class DataMixin:
         return slices
 
     def get_aug(self, text_batch):
-        text_batch = self_segment_insert(text_batch)
+        text_batch = self_translocation(text_batch)
         text_batch = [punct_insertion(text) for text in text_batch]
         text_batch = self.aug.augment(text_batch)
         return text_batch
@@ -211,7 +211,6 @@ class DataMixin:
         for b in slices:
             x, y = self.load_fn(df[b])
             yield x, y
-
 
 
 class V6(DataMixin):
@@ -313,8 +312,6 @@ class V6(DataMixin):
             logits, y = model.call(data)
             print(logits)
             break
-
-
 
 # self = V4()
 # self.shuffle = False
